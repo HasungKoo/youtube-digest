@@ -145,7 +145,7 @@ def format_report(
         if video["video_id"] in previous:
             before = previous[video["video_id"]]["view_count"]
             diff = video["view_count"] - before
-            change = f"  ({diff:+,} )" if diff else "  (변화 없음)"
+            change = f"  ({diff:+,})" if diff else "  (변화 없음)"
         elif previous_dir is not None:
             change = "  (신규)"
 
