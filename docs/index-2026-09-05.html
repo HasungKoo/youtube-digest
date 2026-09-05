@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ai-agent 다이제스트</title>
+<style>
+  :root {
+    --text: #1a1a1a; --muted: #6b6b68; --line: #e5e3dd;
+    --card: #ffffff; --bg: #faf9f7;
+    --up: #0f6e56; --down: #a32d2d; --accent: #185fa5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: #e8e6e0; --muted: #9c9a92; --line: #34332f;
+      --card: #232320; --bg: #1a1a18;
+      --up: #5dcaa5; --down: #f09595; --accent: #85b7eb;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  select {
+    font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 1rem 1.25rem;
+  }
+  .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--line); padding-bottom: 12px;
+  }
+  .head strong { font-size: 16px; font-weight: 500; }
+  .head span { font-size: 12px; color: var(--muted); }
+  .row {
+    display: flex; gap: 10px; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid var(--line);
+  }
+  .row:last-of-type { border-bottom: none; }
+  .rank { min-width: 36px; align-self: flex-start; padding-top: 2px; font-size: 13px; color: var(--muted); }
+  .rank-up { color: var(--up); font-size: 11px; margin-left: 3px; }
+  .rank-down { color: var(--down); font-size: 11px; margin-left: 3px; }
+  .rank-same { color: var(--muted); font-size: 11px; margin-left: 3px; }
+  .main { flex: 1; min-width: 0; }
+  .main a { color: var(--text); text-decoration: none; font-size: 14px; line-height: 1.45; }
+  .main a:hover { color: var(--accent); text-decoration: underline; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .spark { flex-shrink: 0; line-height: 0; }
+  .views { text-align: right; flex-shrink: 0; min-width: 74px; }
+  .count { font-size: 16px; font-weight: 500; }
+  .change { font-size: 12px; }
+  .up { color: var(--up); }
+  .flat { color: var(--muted); }
+  .new {
+    color: var(--accent); font-size: 11px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px;
+  }
+  .dropped { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+  .drop-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .drop { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .why { margin-left: 6px; opacity: 0.7; }
+  footer { font-size: 12px; color: var(--muted); margin-top: 1rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="controls">
+    <select id="date-picker" onchange="location.href='index-' + this.value + '.html'">
+      <option value="2026-09-05" selected>2026-09-05</option><option value="2026-09-04">2026-09-04</option>
+    </select>
+    <span style="font-size:13px;color:var(--muted)">2026-09-04 대비</span>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <strong>ai-agent · 최근 7일</strong>
+      <span>2026-09-05 08:09 기준</span>
+    </div>
+
+      <div class="row">
+        <div class="rank">1<span class="rank-same">–</span></div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=r4A9CqCjw7A" target="_blank" rel="noopener">코딩 없이 웹사이트 만들기? 믿을 수 없는 무료 솔루션!</a>
+          <div class="meta">부자탐사대 · 09-01</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 12.0,24.0 22.0,24.0 32.0,13.0 42.0,12.8 52.0,12.8 62.0,2.0" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#888780"/></svg></div>
+        <div class="views">
+          <div class="count">30,668</div>
+          <div class="change"><span class="up">+89</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">2<span class="rank-up">&#9650;1</span></div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=wSIy25_JWYI" target="_blank" rel="noopener">에이전트끼리 일하게 만드는 자비스 관제 시스템 구축 과정 전체 시연</a>
+          <div class="meta">양실장의 바이브코딩대학 · 09-02</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 12.0,23.4 22.0,23.2 32.0,15.2 42.0,11.8 52.0,11.5 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">30,248</div>
+          <div class="change"><span class="up">+3,772</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">3<span class="rank-up">&#9650;2</span></div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=sqeTc-peLYg" target="_blank" rel="noopener">“이것만 붙이면 바이브코딩 마법이 시작된다” (인디애나 의대 영상의학과 교수)</a>
+          <div class="meta">티타임즈TV · 09-03</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 12.0,23.6 22.0,23.4 32.0,13.1 42.0,9.7 52.0,9.4 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">18,149</div>
+          <div class="change"><span class="up">+9,471</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">4<span class="rank-same">–</span></div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=ySTZLYp5Bkg" target="_blank" rel="noopener">(무료 자료 제공) 클로드코드 대신 24시간 일하는 AI비서 만들기｜헤르메스 설치법 10분이면 끝납니다</a>
+          <div class="meta">AI 박대표 · 09-01</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 12.0,23.7 22.0,23.6 32.0,22.0 42.0,19.7 52.0,19.6 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">13,188</div>
+          <div class="change"><span class="up">+736</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">5</div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=2G8ElOHrMwE" target="_blank" rel="noopener">추론메모리+단기메모리+장기메모리 기반 AI 에이전트 구현하기 | Neo4j Agent Memory 활용 튜토리얼 | Context Graph</a>
+          <div class="meta">공원나연 · 09-02</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 14.0,22.8 26.0,22.8 38.0,11.1 50.0,2.0 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">4,638</div>
+          <div class="change"><span class="new">신규</span></div>
+        </div>
+      </div>
+
+      <div class="dropped">
+        <div class="drop-label">순위에서 빠짐</div>
+        <div class="drop">암묵지 자산화를 위한 딥트윈 에이전트의 전체 원리와 설계 프로세스<span class="why">· 2위였음</span></div>
+      </div>
+  </div>
+
+  <footer>YouTube Data API v3 · 매일 08:00 자동 수집</footer>
+</div>
+</body>
+</html>
