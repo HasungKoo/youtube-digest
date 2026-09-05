@@ -1,6 +1,6 @@
 # YouTube Digest 프로젝트 — 재시작 요약본
 
-**작성일 2026-09-04** · 기준 커밋 `52e4f7e` · 브랜치 `main`
+**갱신일 2026-09-06** · 기준 커밋 `7532f1f` · 브랜치 `main`
 
 > API 키·토큰·비밀번호는 이 문서에 포함하지 않는다.
 
@@ -8,10 +8,11 @@
 
 ## 현재 위치 — 가장 중요한 한 문장
 
-- YouTube Data API v3로 "AI 에이전트" 주제의 한국어 영상을 수집하고, 최근 7일 이내 영상을 조회수 순으로 5개 보고하는 시스템을 하루 만에 완성했다.
-- 이전 수집분과 비교해 **조회수 변화**를 계산한다.
-- 매일 아침 8시 cron이 자동 실행하고 결과를 **Telegram과 파일**로 남긴다.
-- **LLM을 거치지 않는 구조**라 Gemini가 429/503이어도 보고는 정상 작동한다.
+- YouTube Data API v3로 "AI 에이전트" 주제의 한국어 영상을 수집하고, 최근 7일 이내 영상을 조회수 순으로 5개 보고한다.
+- 이전 수집분과 비교해 **조회수 변화와 순위 변동**을 계산한다.
+- 매일 아침 8시 cron이 **수집 → Telegram 보고 → HTML 생성 → GitHub push → Vercel 배포**를 전부 자동으로 한다.
+- **LLM을 거치지 않는 구조**라 Gemini가 429/503이어도 정상 작동한다.
+- 공개 주소: `https://youtube-digest-smoky.vercel.app`
 - 다음 목표는 이 구조를 KRA 프로젝트에 이식해 경마 유튜브 보고를 만드는 것이다.
 
 ---
@@ -34,70 +35,82 @@ hermes cron status
 | --- | --- | --- |
 | 작업 폴더 | `~/projects/youtube-digest` | `cd`로 이동 |
 | 가상환경 | 프롬프트 앞에 `(.venv)` | `source .venv/bin/activate` |
-| 브랜치 | `main` | 확인 |
-| 최신 커밋 | `52e4f7e` | 이후 작업이 있으면 갱신 |
+| 최신 커밋 | `7532f1f` 이후 | 자동 갱신 커밋이 쌓인다 |
+| 원격 동기화 | `origin/main`이 같은 커밋 | `git push` |
 | 테스트 | `15 passed` | failed 줄 확인 후 수정 |
 | Gateway | `Active: active (running)` | `hermes gateway start` |
-| Cron | `Gateway is running — cron jobs will fire` | 위와 동일 |
+| Cron | `Next run: <내일 08:00>` | 위와 동일 |
 
-### Gateway 시작
+### 수동 실행
 
-**systemd 서비스로 등록되어 있다.** 예전처럼 `hermes gateway run`을 쓰지 않는다.
+전체 파이프라인을 한 번에 돌린다. API 201유닛을 쓴다.
 
 ```bash
-hermes gateway start
+bash ~/.hermes/scripts/youtube_daily.sh
 ```
 
-- 백그라운드로 돌아 터미널을 붙잡지 않는다.
-- 로그는 화면이 아니라 저널에 쌓인다. `journalctl --user -u hermes-gateway -f`
-- linger가 켜져 있어 로그아웃해도 유지된다.
-- **WSL을 껐다 켜면(`wsl --shutdown`, 재부팅) 죽을 수 있다.** 그때 다시 `start`.
+마지막 줄에 `[웹페이지] 갱신 완료`가 나오면 전부 성공이다.
 
-### 마지막 보고 확인
+### 마지막 cron 보고 확인
 
 ```bash
 cat $(ls -t ~/.hermes/cron/output/8b92e4108dcf/*.md | head -1)
 ```
 
+### Gateway 관리
+
+systemd 사용자 서비스로 등록되어 있다. `hermes gateway run`은 쓰지 않는다.
+
+```bash
+hermes gateway start      # 시작
+hermes gateway restart    # 메모리가 쌓이면 재시작
+hermes gateway status
+journalctl --user -u hermes-gateway -f
+```
+
+**WSL을 껐다 켜면 죽을 수 있다.** 노트북 뚜껑만 닫는 정도로는 살아남는 것을 확인했다(25시간 연속 동작).
+
+메모리는 하루에 100MB에서 1GB까지 늘었다. 며칠에 한 번 `restart` 하면 초기화된다.
+
 ---
 
-## 2. 시스템 구조
+## 2. 전체 구조
 
 ```
-[사용자 수동 실행]                    [매일 08:00 cron]
-        │                                    │
-        └──────────┬─────────────────────────┘
-                   ↓
-      ~/.hermes/scripts/youtube_daily.sh
-                   ↓
-   ┌───────────────┴───────────────┐
-   ↓                               ↓
-youtube_collect_once.py      youtube_digest.py
-   ↓                               ↓
-[YouTube Data API v3]        [저장된 원본 읽기]
-   ↓                               ↓
-data/raw/youtube/            7일·한국어 필터
- + manifest + SHA-256        채널당 2개 제한
-                             조회수 정렬
-                             직전 수집과 비교
-                                   ↓
-                   ┌───────────────┴──────────────┐
-                   ↓                              ↓
-            Telegram (home 채널)      ~/.hermes/cron/output/
+[매일 08:00 cron]  또는  [수동 실행]
+              ↓
+   ~/.hermes/scripts/youtube_daily.sh
+              ↓
+   ┌──────────┴──────────┐
+   ↓                     ↓
+youtube_collect_once.py   (원본 저장 + SHA-256)
+   ↓
+youtube_digest.py  → 텍스트 보고 → Telegram + ~/.hermes/cron/output/
+   ↓
+youtube_report.py  → HTML 생성 → docs/
+   ↓
+git commit & push  → GitHub
+   ↓
+Vercel 자동 배포   → https://youtube-digest-smoky.vercel.app
 ```
 
-**LLM이 이 경로에 없다.** 그래서 Gemini 장애와 무관하게 작동한다.
+**LLM이 이 경로에 없다.** Gemini 장애와 무관하게 작동한다.
 
 ### 구성요소
 
 | 구성요소 | 역할 | 위치 |
 | --- | --- | --- |
 | `youtube_collect_once.py` | API 호출, 원본 저장, manifest, SHA-256 | `scripts/` |
-| `youtube_digest.py` | 필터·정렬·비교·보고문 생성 | `scripts/` |
-| `youtube_daily.sh` | 두 스크립트를 순서대로 실행 | `~/.hermes/scripts/` |
-| cron 작업 | 매일 8시 셸 스크립트 실행 | `~/.hermes/cron/jobs.json` |
-| gateway | cron 스케줄러 + Telegram 연결 | systemd 사용자 서비스 |
+| `youtube_digest.py` | 텍스트 보고 (Telegram용) | `scripts/` |
+| `youtube_report.py` | HTML 보고서 (웹용) | `scripts/` |
+| `youtube_daily.sh` | 4단계를 순서대로 실행 | `~/.hermes/scripts/` |
+| cron 작업 `8b92e4108dcf` | 매일 8시 셸 스크립트 실행 | `~/.hermes/cron/jobs.json` |
+| gateway | cron 스케줄러 + Telegram | systemd 사용자 서비스 |
 | `youtube` 프로필 | 이 프로젝트 전용 Hermes 프로필 | `~/.hermes/profiles/youtube/` |
+| GitHub 저장소 | 코드 백업 + 배포 원본 | `HasungKoo/youtube-digest` |
+| Vercel 프로젝트 | 정적 사이트 호스팅 | Root Directory `docs` |
+
+**텍스트 보고와 HTML 보고를 다른 스크립트로 분리했다.** cron이 매일 쓰는 `youtube_digest.py`를 건드리다 깨지면 아침 보고가 안 오기 때문이다.
 
 ---
 
@@ -109,27 +122,31 @@ data/raw/youtube/            7일·한국어 필터
 | Python | `.venv` (requests, python-dotenv, pytest) |
 | API | YouTube Data API v3 (`youtube.googleapis.com`) |
 | 키 위치 | 프로젝트 `.env`의 `YOUTUBE_API_KEY` |
-| Google Cloud 프로젝트 | Gemini API와 같은 프로젝트 사용 |
+| GitHub 사용자 | `HasungKoo` |
+| GitHub 인증 | Personal Access Token (classic), `repo` 권한 |
+| 토큰 저장 | `git config --global credential.helper store` |
+| Vercel 팀 | `hasungkoo's projects` (Hobby, 무료) |
+| 공개 주소 | `https://youtube-digest-smoky.vercel.app` |
 | cron 작업 ID | `8b92e4108dcf` |
-| Telegram home 채널 | 설정 완료 (`/sethome`) |
 
 ### 할당량
 
-일일 10,000 유닛.
+일일 10,000 유닛. search 100, videos 1. **1회 수집 201유닛.**
 
-| 호출 | 비용 |
-| --- | --- |
-| search | 100 유닛 |
-| videos | 1 유닛 |
-| **1회 수집 (검색어 2개 + 상세 1회)** | **201 유닛** |
-
-하루 40회 이상 가능하다. cron 1회 + 수동 몇 번은 여유롭다.
+`youtube_digest.py`와 `youtube_report.py`는 저장된 원본만 읽으므로 할당량을 쓰지 않는다.
 
 ### 보안
 
-- `YOUTUBE_API_KEY`는 `.env`에만 두고 `chmod 600`.
 - `.gitignore`가 `.env`, `.venv/`, `data/raw/`, `docs/*.pdf`를 제외한다.
+- push 전에 항상 확인한다.
+
+```bash
+git ls-files | grep -i env    # 아무것도 안 나와야 정상
+git ls-files                   # 올라갈 파일 전체 목록
+```
+
 - manifest에 `api_key_recorded: false`로 기록하며 키 문자열이 들어가지 않는다.
+- 저장소는 Public이지만 키가 없으므로 안전하다.
 
 ---
 
@@ -139,10 +156,9 @@ data/raw/youtube/            7일·한국어 필터
 
 ```
 HTTP 403 API_KEY_SERVICE_BLOCKED
-Requests to this API youtube method ... are blocked.
 ```
 
-**별도 키를 만들고 제한을 YouTube Data API v3로 건다.**
+별도 키를 만들고 제한을 YouTube Data API v3로 건다.
 
 1. Google Cloud Console → API 및 서비스 → 라이브러리
 2. `YouTube Data API v3` 검색 (Analytics나 Reporting이 아니다. 서비스명 `youtube.googleapis.com`)
@@ -157,7 +173,7 @@ Requests to this API youtube method ... are blocked.
 
 ## 5. 검색어 선정 과정
 
-실제로 테스트해서 정했다. 이 과정 자체가 중요한 학습이었다.
+실제로 테스트해서 정했다.
 
 | 검색어 | 결과 | 판정 |
 | --- | --- | --- |
@@ -171,17 +187,15 @@ Requests to this API youtube method ... are blocked.
 
 **외래어만 있는 검색어는 영어권 결과를 부른다.** "튜토리얼", "워크플로우"는 영어 단어와 사실상 같다. "만들기", "구축", "실습" 같은 고유어가 있어야 한국어 결과가 걸린다.
 
-**`relevanceLanguage=ko`만으로는 부족하다.** 파라미터를 줘도 영어 영상이 섞인다. 코드 쪽 한글 필터가 반드시 필요하다.
+**`relevanceLanguage=ko`만으로는 부족하다.** 코드 쪽 한글 필터가 반드시 필요하다.
 
-**`order=viewCount`는 오래된 인기 영상만 올린다.** 어제 올라온 영상은 조회수가 낮을 수밖에 없다. **API에서는 최신순으로 넓게 받고, 정렬은 코드가 한다.**
+**`order=viewCount`는 오래된 인기 영상만 올린다.** API에서는 최신순으로 넓게 받고, 정렬은 코드가 한다.
 
-**같은 채널이 여러 개 차지한다.** 자동 생성 채널은 비슷한 제목으로 도배한다. 채널당 개수 제한이 필요하다.
+**같은 채널이 결과를 도배한다.** 채널당 개수 제한이 필요하다.
 
 ---
 
 ## 6. 수집기 — `youtube_collect_once.py`
-
-### 실행
 
 ```bash
 .venv/bin/python scripts/youtube_collect_once.py \
@@ -191,27 +205,25 @@ Requests to this API youtube method ... are blocked.
   --max-results 25
 ```
 
-`--query`는 반복 지정할 수 있다. `--topic`은 저장 폴더명이 된다.
-
 ### 동작
 
-1. 검색어마다 `search`로 최신순 목록을 받는다 (검색어당 100 유닛)
-2. `videoId`를 모아 중복을 제거한다
-3. `videos`로 상세 정보를 한 번에 조회한다 (1 유닛, 최대 50개)
-4. 원본 JSON을 타임스탬프 폴더에 저장하고 SHA-256을 남긴다
-5. manifest.json에 요청 조건·건수·해시·할당량을 기록한다
+1. 검색어마다 `search`로 최신순 목록 (검색어당 100유닛)
+2. `videoId` 중복 제거
+3. `videos`로 상세 조회 (1유닛, 최대 50개)
+4. 원본 JSON을 타임스탬프 폴더에 저장, SHA-256 기록
+5. manifest.json에 요청 조건·건수·해시·할당량 기록
 
 ### 저장 구조
 
 ```
-data/raw/youtube/ai-agent/20260904T121441975762+0900/
+data/raw/youtube/ai-agent/20260906T001148406811+0900/
 ├── search_01.json + .sha256
 ├── search_02.json + .sha256
 ├── videos.json + .sha256
 └── manifest.json
 ```
 
-**수집할 때마다 폴더가 쌓인다.** 조회수 변화를 계산하려면 이전 수집분이 남아 있어야 하기 때문이다.
+**수집할 때마다 폴더가 쌓인다.** 조회수 변화 계산에 이전 수집분이 필요하기 때문이다.
 
 ### API 응답에서 알게 된 것
 
@@ -221,97 +233,113 @@ data/raw/youtube/ai-agent/20260904T121441975762+0900/
 | `title`, `description` | **videos** | search는 잘린 설명과 `&quot;` 이스케이프를 준다 |
 | `publishedAt` | videos | **UTC(`Z`)다. KST는 +9시간** |
 | `defaultAudioLanguage` | videos | 설정 안 한 채널도 많다 |
-| `viewCount`, `likeCount` | videos | search에는 없다 |
-
-**두 단계 호출이 필요하다.** search는 조회수를 주지 않고, videos가 훨씬 싸다(1 유닛).
+| `viewCount` | videos | search에는 없다 |
 
 ---
 
-## 7. 보고기 — `youtube_digest.py`
-
-### 실행
+## 7. 텍스트 보고 — `youtube_digest.py`
 
 ```bash
 .venv/bin/python scripts/youtube_digest.py --topic ai-agent
 ```
 
-**새 API 호출을 하지 않는다.** 저장된 원본만 읽으므로 할당량을 쓰지 않는다.
-
-### 옵션
+새 API 호출을 하지 않는다.
 
 | 옵션 | 기본값 | 의미 |
 | --- | --- | --- |
-| `--days` | 7 | 며칠 이내 영상을 볼지 |
-| `--top` | 5 | 몇 개를 보고할지 |
-| `--per-channel` | 2 | 같은 채널에서 최대 몇 개 |
-| `--compare-with` | previous | `previous`, `none`, 또는 폴더명 |
-
-특정 시점과 비교하려면 폴더명을 직접 지정한다.
-
-```bash
-ls -1 data/raw/youtube/ai-agent/
-.venv/bin/python scripts/youtube_digest.py --topic ai-agent \
-  --compare-with 20260904T121441975762+0900
-```
+| `--days` | 7 | 며칠 이내 영상 |
+| `--top` | 5 | 보고 개수 |
+| `--per-channel` | 2 | 채널당 최대 |
+| `--compare-with` | previous | `previous`, `none`, 폴더명 |
 
 ### 처리 순서
 
 ```
 저장된 videos.json 읽기
-  ↓
-최근 N일 이내 필터
-  ↓
-한국어 판정
-  ├─ defaultAudioLanguage 또는 defaultLanguage가 ko → korean
-  ├─ 한글 비율 30% 이상 → korean
-  ├─ 한글 비율 10~30% → unsure (별도 표시)
-  └─ 그 외 → skip
-  ↓
-조회수 높은 순 정렬
-  ↓
-채널당 최대 N개로 제한 (정렬 순서 유지)
-  ↓
-상위 N개 선정
-  ↓
-직전 수집과 조회수 비교
+  → 최근 N일 필터
+  → 한국어 판정 (언어 태그 ko / 한글비율 30% 이상 → korean,
+                 10~30% → unsure 별도 표시, 그 외 skip)
+  → 조회수 정렬
+  → 채널당 N개 제한
+  → 상위 N개
+  → 직전 수집과 조회수 비교
 ```
-
-**한국어 판정이 애매한 것(10~30%)은 버리지 않고 별도로 표시한다.** 모르는 것을 아는 척하지 않는 원칙이다.
-
-### 출력 예시
-
-```
-[ai-agent] 최근 7일 한국어 영상 5건
-수집 시점: 20260904T231934955155+0900
-비교 대상: 20260904T231103810907+0900
-
-1. 암묵지 자산화를 위한 딥트윈 에이전트의 전체 원리와 설계 프로세스
-   양실장의 바이브코딩대학 · 08-31 21:00
-   조회 31,748  (+11)
-   https://www.youtube.com/watch?v=...
-```
-
-괄호 표시의 의미.
-
-- `(+55)` 조회수가 55 늘었다
-- `(변화 없음)` 조회수가 같다
-- `(신규)` 이전 수집에는 없던 영상이다
 
 ---
 
-## 8. 자동화 — cron
+## 8. HTML 보고 — `youtube_report.py`
 
-### 셸 스크립트
+```bash
+.venv/bin/python scripts/youtube_report.py --topic ai-agent
+.venv/bin/python scripts/youtube_report.py --topic ai-agent --date 2026-09-05 --out docs/index-2026-09-05.html
+.venv/bin/python scripts/youtube_report.py --topic ai-agent --json
+```
 
-`~/.hermes/scripts/youtube_daily.sh`가 두 파이썬 스크립트를 순서대로 실행한다.
+### 설계 원칙
+
+**계산과 출력을 분리했다.** 계산 함수는 파이썬 자료구조를 반환하므로, 나중에 JSON API가 필요하면 그대로 재사용할 수 있다. `--json` 옵션이 그 증거다.
+
+### 날짜별 대표 수집
+
+`daily_runs()`가 **그날 첫 수집**을 대표로 삼는다. cron이 매일 08:00에 실행되므로 수동 실행을 몇 번 하든 기준 시각이 흔들리지 않는다.
+
+### 화면 구성
+
+- 날짜 선택 드롭다운 (`index-YYYY-MM-DD.html`로 이동)
+- 순위 변동 화살표 (`▲2` 상승, `▼1` 하락, `–` 유지, 신규는 배지)
+- 제목·채널·게시일 (제목 클릭 시 YouTube로)
+- 스파크라인 (최근 7회 수집의 조회수 추이, 증가는 초록 정체는 회색)
+- 조회수와 변화량
+- 하단 이탈 목록 (`N위였음`)
+- 다크모드 자동 대응
+
+### 주요 함수
+
+| 함수 | 하는 일 |
+| --- | --- |
+| `daily_runs(topic)` | 날짜별 대표 수집 폴더 |
+| `build_ranking(run_dir, ...)` | 그날의 순위 목록 |
+| `compare(current, previous)` | 순위 변동, 신규, 이탈 |
+| `view_history(topic, video_id)` | 조회수 이력 (스파크라인용) |
+| `build_report(...)` | 위를 합쳐 딕셔너리로 |
+| `render_html(report)` | HTML 문자열 |
+| `sparkline(values)` | SVG 선그래프 |
+
+---
+
+## 9. 자동화 — `youtube_daily.sh`
+
+`~/.hermes/scripts/youtube_daily.sh`가 4단계를 순서대로 실행한다.
+
+```
+1. 수집          youtube_collect_once.py
+2. 텍스트 보고    youtube_digest.py → 표준출력 → Telegram
+3. HTML 생성     youtube_report.py (모든 날짜 + index.html)
+4. git push      → Vercel 자동 배포
+```
+
+### 설계 원칙
 
 **`--script`는 `~/.hermes/scripts/` 아래 파일만 받는다.** 프로젝트 폴더가 아니므로 스크립트 안에서 절대 경로로 `cd` 한다.
 
 **실패해도 `exit 0`으로 끝내고 오류를 표준출력에 남긴다.** `--no-agent` 모드에서 표준출력이 비면 아무것도 전달되지 않아, "실패한 건지 잊은 건지" 알 수 없게 되기 때문이다.
 
-수집이 실패하면 마지막 저장분으로 보고를 시도한다.
+**단계별로 실패를 격리했다.**
 
-### 등록
+- 수집 실패 → 마지막 저장분으로 보고 시도
+- 텍스트 보고 실패 → 여기서 중단 (가장 중요한 산출물)
+- HTML 실패 → 텍스트 보고는 이미 나갔으므로 경고만
+- push 실패 → 인증 문제로 안내
+
+마지막 줄에 웹페이지 상태가 나온다.
+
+```
+[웹페이지] 갱신 완료 · https://youtube-digest-smoky.vercel.app
+[웹페이지] 변경 없음 · ...
+[웹페이지] push 실패. git 인증을 확인하세요.
+```
+
+### cron 등록
 
 ```bash
 hermes cron add "0 8 * * *" \
@@ -321,37 +349,25 @@ hermes cron add "0 8 * * *" \
   --deliver telegram
 ```
 
-`--no-agent`가 핵심이다. **LLM을 건너뛰고 스크립트 표준출력을 그대로 전달한다.** 토큰을 쓰지 않고 Gemini 장애와 무관하다.
+`--no-agent`가 핵심이다. LLM을 건너뛰고 스크립트 표준출력을 그대로 전달한다.
 
 ### schedule 표기
 
 ```
 분  시  일  월  요일
-0   8   *   *   *     →  매일 8시 0분
-0   8   *   *   1     →  매주 월요일 8시
+0   8   *   *   *     →  매일 8시
 */30 *  *   *   *     →  30분마다
 ```
-
-`every 2h`, `30m` 같은 표기도 받는다.
 
 ### 관리 명령
 
 ```bash
-hermes cron list                  # 등록된 작업 목록 + 마지막 실행 결과
-hermes cron status                # 스케줄러가 도는지
+hermes cron list                  # 목록 + 마지막 실행 결과
+hermes cron status                # 스케줄러 동작 여부
 hermes cron run 8b92e4108dcf      # 즉시 실행
 hermes cron runs 8b92e4108dcf     # 실행 이력
 hermes cron edit 8b92e4108dcf --deliver telegram
-hermes cron pause / resume / remove
 ```
-
-### 출력 저장 위치
-
-```
-~/.hermes/cron/output/8b92e4108dcf/2026-09-04_22-56-56.md
-```
-
-작업 ID별 폴더에 실행 시각별 파일이 쌓인다. Telegram이 실패해도 여기 남는다.
 
 ### Telegram 전달
 
@@ -363,129 +379,130 @@ hermes cron pause / resume / remove
 
 Telegram 대화창에서 `/sethome`을 보내면 그 채팅이 수신처가 된다.
 
-### Gateway
+---
 
-**cron 스케줄러는 gateway 안에 있다.** gateway가 꺼져 있으면 작업이 실행되지 않는다.
+## 10. GitHub
 
-systemd 사용자 서비스로 등록했다.
+### 저장소 만들기
+
+`https://github.com/new` (UI가 바뀌어도 이 주소는 유지된다)
+
+- Repository name: `youtube-digest`
+- **README, .gitignore, license는 체크하지 않는다.** 로컬에 이미 있어 충돌한다.
+
+### 연결과 push
 
 ```bash
-hermes gateway install --start-now --start-on-login   # 최초 1회
-hermes gateway start                                  # 이후 시작
-hermes gateway status
-journalctl --user -u hermes-gateway -f                # 로그 보기
+git remote add origin https://github.com/HasungKoo/youtube-digest.git
+git push -u origin main
 ```
 
-**설치 시 WSL 경고가 뜬다.**
+### 인증 — Personal Access Token
 
-```
-⚠ WSL detected — systemd services may not survive WSL restarts.
+**비밀번호 인증은 2021년에 막혔다.** 토큰이 필요하다.
+
+`https://github.com/settings/tokens` → Generate new token (classic) → `repo` 권한만 체크 → Generate
+
+`ghp_`로 시작하는 문자열이 나온다. **그 화면을 벗어나면 다시 못 본다.**
+
+push 시 Username에 `HasungKoo`, Password에 토큰을 넣는다.
+
+### 토큰 저장
+
+cron이 자동 push하려면 인증이 저장돼 있어야 한다.
+
+```bash
+git config --global credential.helper store
+git push        # 한 번 입력하면 저장된다
+git push        # 두 번째는 아무것도 안 물어봐야 정상
 ```
 
-노트북을 껐다 켜거나 `wsl --shutdown` 후에는 `hermes gateway start`로 다시 켜야 할 수 있다. 대안으로 tmux를 쓸 수도 있다.
+평문으로 저장되므로 개인 노트북에서만 쓴다.
 
 ---
 
-## 9. Hermes 프로필과 작업 디렉토리
+## 11. Vercel
 
-**오늘 겪은 가장 헷갈린 문제다.**
+### GitHub과의 관계
 
-### 증상
-
-`youtube-digest` 폴더에서 `hermes chat`을 띄웠는데 Hermes가 KRA 폴더에서 일했다.
+**GitHub은 창고, Vercel은 전시장이다.**
 
 ```
-현재 프로젝트 디렉토리(horse-agent-free-laptop-starter)에 존재하지 않습니다
+노트북에서 git push → GitHub 저장 → Vercel이 감지 → 자동 배포 → 전 세계 접속
 ```
 
-스킬도 KRA 것 2개가 로드되고 `youtube-digest`는 안 보였다.
+노트북은 서버가 될 수 없다. 24시간 켜두고 공인 IP·방화벽·HTTPS 인증서를 다뤄야 하며, 노트북을 끄면 사이트가 죽는다. Vercel이 그걸 대신하고 무료다.
 
-### 원인
+### 배포 설정
 
-**프로필의 `config.yaml`에 작업 디렉토리가 고정되어 있다.** 터미널이 어디 있든 상관없다.
+1. `https://vercel.com/signup` → Continue with GitHub
+2. 플랜은 **Hobby** (개인 프로젝트, 무료)
+3. 2FA 권유는 `Skip securing my account`로 건너뛸 수 있다 (나중에 켜는 것이 좋다)
+4. Add New → Project → GitHub App **Install** (저장소 접근 권한)
+5. `youtube-digest` → Import
+6. **Root Directory를 `docs`로 바꾼다** ← 가장 중요
+7. Application Preset: `Other`, Build/Output 설정은 비움
+8. Deploy
 
-```yaml
-terminal:
-  cwd: /home/geoheim/projects/horse-agent-free-laptop-starter
-skills:
-  trusted_project_dirs:
-    - /home/geoheim/projects/horse-agent-free-laptop-starter
-```
+**Root Directory가 핵심이다.** 기본값 `./`는 저장소 최상위인데 거기엔 `index.html`이 없다. `docs` 폴더 안에 있다.
 
-### 해결
+**Environment Variables는 건드리지 않는다.** 수집은 노트북에서 하고 Vercel은 완성된 HTML만 보여준다.
 
-프로젝트마다 프로필을 나눈다.
+### 주소 두 개
 
-```bash
-hermes profile create youtube --clone --description "..."
-nano ~/.hermes/profiles/youtube/config.yaml
-```
+| 주소 | 성격 |
+| --- | --- |
+| `youtube-digest-smoky.vercel.app` | **고정 주소.** 이걸 쓴다 |
+| `youtube-digest-<해시>-hasungkoo.vercel.app` | 배포마다 바뀌는 고유 주소 |
 
-두 곳을 고친다.
+### 이후
 
-```yaml
-terminal:
-  cwd: /home/geoheim/projects/youtube-digest
-skills:
-  trusted_project_dirs:
-    - /home/geoheim/projects/youtube-digest
-```
+> To update your Production Deployment, push to the `main` branch.
 
-### 현재 프로필 구성
+**`git push`만 하면 자동 갱신된다.** Vercel 웹사이트에 다시 갈 필요가 없다.
 
-| 프로필 | 작업 폴더 | 역할 |
-| --- | --- | --- |
-| `default` | KRA | Telegram 연결, cron 실행 |
-| `data-collector` | KRA | 수집 담당 |
-| `data-reviewer` | KRA | 검토 담당 |
-| `youtube` | youtube-digest | 유튜브 전용 |
-
-```
-유튜브 대화  →  youtube chat
-KRA 대화     →  hermes chat
-```
-
-**wrapper** — `~/.local/bin/youtube`는 `hermes --profile youtube`의 줄임말이다. 프로필 생성 시 자동으로 만들어진다.
-
-**cron은 프로필과 무관하다.** `--no-agent` 모드라 셸 스크립트가 절대 경로로 실행되기 때문이다.
+문제가 생기면 Deployments에서 이전 버전으로 되돌릴 수 있다(Instant Rollback).
 
 ---
 
-## 10. 겪은 문제와 해결
+## 12. 겪은 문제와 해결
 
 | 증상 | 원인 | 해결 |
 | --- | --- | --- |
-| `HTTP 403 API_KEY_SERVICE_BLOCKED` | Gemini 키를 재사용, API 제한에 YouTube 없음 | 별도 키 생성 후 제한을 YouTube Data API v3로 |
+| `HTTP 403 API_KEY_SERVICE_BLOCKED` | Gemini 키 재사용 | 별도 키 + YouTube Data API v3 제한 |
 | 키를 바꿨는데 여전히 403 | `source .env`를 안 함 | 셸 변수는 자동 갱신되지 않는다 |
-| 검색 결과가 전부 영어 | 검색어가 외래어뿐 | 고유어("만들기", "실습")를 넣는다 |
+| 검색 결과가 전부 영어 | 검색어가 외래어뿐 | 고유어를 넣는다 |
 | 같은 채널이 결과를 도배 | 자동 생성 채널 | `--per-channel` 제한 |
 | 오래된 인기 영상만 나옴 | `order=viewCount` | 최신순으로 받고 코드가 정렬 |
 | Hermes가 다른 프로젝트에서 일함 | 프로필의 `terminal.cwd` 고정 | 프로젝트별 프로필 생성 |
 | 스킬이 로드되지 않음 | `trusted_project_dirs`에 없음 | 프로필 config에 경로 추가 |
-| `hermes skills list` 결과가 흔들림 | 캐시로 보임 | 목록보다 **chat 배너의 스킬 목록**을 믿는다 |
+| `hermes skills list` 결과가 흔들림 | 캐시로 보임 | chat 배너의 스킬 목록을 믿는다 |
 | `Delivery failed: no delivery target` | home 채널 미설정 | Telegram에서 `/sethome` |
 | cron이 실행되지 않음 | gateway 미실행 | `hermes gateway start` |
-| Gemini HTTP 503 | Google 서버 과부하 (내 문제 아님) | 기다린다. cron 경로는 영향 없음 |
-| 터미널 붙여넣기가 잘림 | WSL 터미널이 긴 텍스트를 못 받음 | **파일로 만들어 다운로드 후 `cp`** |
+| Gemini 503 / 429 | Google 서버 문제 / 무료 티어 소진 | cron 경로는 LLM을 안 쓰므로 영향 없음 |
+| git push가 비밀번호를 거부 | 비밀번호 인증 폐지 | Personal Access Token |
+| Username 자리에 명령어를 입력 | 프롬프트 오해 | `HasungKoo`만 입력 |
+| 터미널에 URL을 입력 | 브라우저용 주소 | 주소창에 넣는다 |
+| GitHub에서 저장소 생성 버튼을 못 찾음 | UI 변경 | `https://github.com/new` 직접 입력 |
+| 터미널 붙여넣기가 잘림 | WSL 터미널 한계 | **파일로 만들어 다운로드 후 `cp`** |
 | 셸이 `>`에서 멈춤 | 따옴표가 안 닫힘 | `Ctrl+C` 후 한 줄로 재입력 |
+| gateway 메모리가 1GB로 증가 | 장시간 동작 | `hermes gateway restart` |
 
 ### 붙여넣기 문제
 
-이 프로젝트에서 반복해서 겪었다. 100줄 넘는 파일은 터미널 붙여넣기로 만들지 않는다.
-
-**파일을 받아서 복사하는 방식이 확실하다.**
+100줄 넘는 파일은 터미널 붙여넣기로 만들지 않는다. 파일을 받아서 복사하는 방식이 확실하다.
 
 ```bash
 cp /mnt/c/Users/geohe/Downloads/파일명 대상경로/
 ```
 
-Windows가 같은 이름을 피해 `(1)`을 붙이면 따옴표로 감싼다.
+Windows가 `(1)`을 붙이면 따옴표로 감싼다.
 
 ```bash
 cp "/mnt/c/Users/geohe/Downloads/파일명 (1).md" 대상경로/파일명.md
 ```
 
-붙여넣은 뒤에는 항상 확인한다.
+붙여넣은 뒤 항상 확인한다.
 
 ```bash
 wc -l 파일명
@@ -495,7 +512,7 @@ python -m py_compile 파일명    # 파이썬이면
 
 ---
 
-## 11. 테스트
+## 13. 테스트
 
 ```bash
 pytest -q      # 15 passed
@@ -505,10 +522,10 @@ pytest -q      # 15 passed
 
 | 검증 대상 | 개수 |
 | --- | --- |
-| `korean_ratio` — 한글 비율 계산 | 5 |
-| `classify` — 한국어·기간 판정 | 6 |
-| `limit_per_channel` — 채널 제한과 순서 유지 | 2 |
-| `published_kst` — UTC→KST 변환, 잘못된 입력 | 2 |
+| `korean_ratio` | 5 |
+| `classify` | 6 |
+| `limit_per_channel` | 2 |
+| `published_kst` | 2 |
 
 ### 테스트를 신뢰하는 방법
 
@@ -521,15 +538,19 @@ git checkout -- scripts/youtube_digest.py
 pytest -q                                  # 15 passed 로 복귀
 ```
 
-실제로 `test_classify_korean_by_ratio`가 실패했고 나머지 14개는 통과했다. 테스트가 독립적으로 작동한다는 증거다.
+**커밋 안 한 파일은 `git checkout`으로 되돌릴 수 없다.** 실험 전에 커밋해 안전지대를 만든다. (실제로 겪었다. 공백 수정이 날아갔다.)
 
-**커밋 안 한 파일은 `git checkout`으로 되돌릴 수 없다.** 실험 전에 커밋해 안전지대를 만든다. (이 프로젝트에서 실제로 겪었다. 커밋 전에 되돌려 수정이 날아갔다.)
+`youtube_report.py`에 대한 테스트는 아직 없다. 나중에 `compare`, `daily_runs`, `sparkline`을 검증하면 좋다.
 
 ---
 
-## 12. Git 상태
+## 14. Git 상태
 
 ```
+7532f1f  chore: 웹페이지 자동 갱신 2026-09-06
+72ed72b  chore: 인증 저장 테스트
+00f9014  feat: HTML 보고서 생성 및 초기 페이지
+7eaa7b2  docs: 프로젝트 요약본 추가
 52e4f7e  fix: 조회수 변화 표시의 불필요한 공백 제거
 cf79f30  feat: youtube-digest 스킬 추가
 1eb624f  test: 필터·정렬 로직 검증 테스트 추가
@@ -538,67 +559,71 @@ bb2ce71  feat: 수집 결과 필터·정렬·보고 스크립트 추가
 5b20616  chore: 프로젝트 초기 설정
 ```
 
-브랜치 `main` · working tree clean
+브랜치 `main` · 원격 `origin` = `https://github.com/HasungKoo/youtube-digest.git`
+
+**앞으로 cron이 매일 `chore: 웹페이지 자동 갱신 YYYY-MM-DD` 커밋을 쌓는다.**
 
 ### Git 밖에 있는 것
 
 **이 문서가 유일한 재현 근거다.**
 
-- `~/.hermes/profiles/youtube/` — 프로필 설정
-- `~/.hermes/scripts/youtube_daily.sh` — cron 셸 스크립트
-- `~/.hermes/cron/jobs.json` — cron 작업 정의
+- `~/.hermes/profiles/youtube/` — 프로필 설정 (`terminal.cwd`, `trusted_project_dirs`)
+- `~/.hermes/scripts/youtube_daily.sh` — 자동화 스크립트
+- `~/.hermes/cron/jobs.json` — cron 작업 `8b92e4108dcf`
 - `~/.config/systemd/user/hermes-gateway.service` — gateway 서비스
-- `data/raw/youtube/` — 수집 원본 (gitignore)
-- 프로젝트 `.env` — API 키 (gitignore)
+- `~/.git-credentials` — GitHub 토큰
+- Vercel 프로젝트 설정 (Root Directory `docs`)
+- 프로젝트 `.env` — API 키
+- `data/raw/youtube/` — 수집 원본
 
 ---
 
-## 13. 아직 하지 않은 것
+## 15. 아직 하지 않은 것
 
 **LLM 요약(B안)** — 현재는 API가 준 제목과 설명만 쓴다. 자막을 읽고 내용을 요약하려면 LLM이 필요하고 매일 토큰을 쓴다.
 
-**KRA 이식** — 원래 목표. 검색어를 "경마 예상", "경마 분석" 등으로 바꾸고 `--topic`을 바꾸면 된다. 검색어가 명령행 인자로 빠져 있어 코드 수정이 거의 필요 없다.
+**KRA 이식** — 원래 목표. 검색어를 "경마 예상" 등으로 바꾸고 `--topic`을 바꾸면 된다.
+
+**신규 배지 위치** — 조회수 아래에 붙는데 채널명 옆이 자연스럽다. 사소한 문제라 미뤘다.
+
+**긴 제목의 세로 정렬** — 제목이 두 줄이면 스파크라인·조회수와 어긋나 보인다.
+
+**`youtube_report.py` 테스트** — 순위 변동과 이탈 계산이 검증되지 않았다.
 
 **주제 확장** — `--topic`을 다르게 주면 같은 스크립트로 여러 주제를 추적할 수 있다. cron 작업만 추가하면 된다.
 
-**Telegram 표시 정리** — 현재 URL과 번호가 마크다운으로 잘못 묶인다. 읽는 데 지장은 없다.
-
-**제목 키워드 재확인** — 검색어에 걸렸지만 주제가 벗어난 영상이 5개 중 1개 정도 섞인다.
-
 ---
 
-## 14. KRA 프로젝트로 이식하는 방법
-
-원래 목표였다. 실제로 옮길 때 할 일.
+## 16. KRA 프로젝트로 이식하는 방법
 
 ### 복사할 것
 
 ```bash
 cp scripts/youtube_collect_once.py ~/projects/horse-agent-free-laptop-starter/scripts/
 cp scripts/youtube_digest.py ~/projects/horse-agent-free-laptop-starter/scripts/
+cp scripts/youtube_report.py ~/projects/horse-agent-free-laptop-starter/scripts/
 cp tests/test_youtube_digest.py ~/projects/horse-agent-free-laptop-starter/tests/
 ```
 
 ### 바꿀 것
 
-- KRA 프로젝트 `.env`에 `YOUTUBE_API_KEY` 추가 (같은 키를 써도 된다)
-- 검색어를 경마 주제로 (`"경마 예상"`, `"경마 분석 실습"` 등 — **테스트해서 정한다**)
-- `--topic horse-racing` 으로 저장 폴더 분리
-- 새 SKILL.md 작성 (`horse-youtube-digest`)
-- 새 cron 작업 등록
+- KRA `.env`에 `YOUTUBE_API_KEY` 추가 (같은 키를 써도 된다)
+- 검색어를 경마 주제로 — **반드시 테스트해서 정한다.** 고유어를 넣어야 한국어 결과가 나온다
+- `--topic horse-racing`으로 저장 폴더 분리
+- 새 SKILL.md (`horse-youtube-digest`)
+- 새 cron 작업과 셸 스크립트
 
 ### 그대로 쓰는 것
 
-- 한글 비율 계산, 기간 필터, 채널 제한, 조회수 비교 로직
+- 한글 비율 계산, 기간 필터, 채널 제한, 조회수 비교, 순위 변동, 스파크라인
 - manifest·SHA-256 검증 패턴
-- `youtube_daily.sh` 구조 (경로와 검색어만 수정)
-- `data-collector`, `data-reviewer` 프로필
+- `youtube_daily.sh` 구조 (경로·검색어·사이트 주소만 수정)
 
 **검색어가 명령행 인자로 빠져 있어 코드는 거의 그대로다.** AGENTS.md에 "검색어와 기간은 하드코딩하지 않는다"고 적어둔 것이 여기서 값을 한다.
 
 ---
 
-## 15. 다음 대화에 붙여넣을 재시작 프롬프트
+## 17. 다음 대화에 붙여넣을 재시작 프롬프트
 
 ```
 나는 Windows 노트북에서 WSL2 Ubuntu 24.04를 사용하고 있다.
@@ -607,30 +632,38 @@ cp tests/test_youtube_digest.py ~/projects/horse-agent-free-laptop-starter/tests
 현재 완료 상태:
 1. YouTube Data API v3 키를 발급받아 프로젝트 .env의 YOUTUBE_API_KEY에 저장했다.
    Gemini 키와 별개이며 제한이 YouTube Data API v3로 걸려 있다. 값은 출력하지 않는다.
-2. scripts/youtube_collect_once.py가 검색어별로 최신순 25개를 받고
-   videos API로 상세를 조회해 원본 JSON, manifest, SHA-256을 저장한다.
-   1회 수집에 201 유닛을 쓴다. 일일 한도는 10,000이다.
-3. scripts/youtube_digest.py가 저장된 원본만 읽어
-   최근 7일 + 한국어 필터 → 채널당 2개 제한 → 조회수 정렬 → 상위 5개를 보고하고
-   직전 수집과 비교해 조회수 변화를 계산한다. 새 API 호출을 하지 않는다.
-4. 검색어는 '"AI 에이전트" 만들기' 와 'AI 에이전트 구축 실습' 두 개다.
+2. scripts/youtube_collect_once.py — 검색어별 최신순 25개 + videos 상세 조회,
+   원본 JSON·manifest·SHA-256 저장. 1회 201유닛, 일일 한도 10,000.
+3. scripts/youtube_digest.py — 저장된 원본만 읽어 최근 7일 + 한국어 필터,
+   채널당 2개 제한, 조회수 정렬, 상위 5개, 직전 수집 대비 조회수 변화.
+4. scripts/youtube_report.py — 같은 데이터로 HTML 생성. 날짜별 대표 수집(그날 첫 수집)
+   기준으로 순위 변동 화살표, 스파크라인, 이탈 목록, 날짜 선택 드롭다운을 만든다.
+   --json 옵션으로 계산 결과만 뽑을 수도 있다.
+5. 검색어는 '"AI 에이전트" 만들기' 와 'AI 에이전트 구축 실습' 두 개다.
    외래어만 있는 검색어(튜토리얼, 워크플로우)는 영어 결과만 나와서 탈락시켰다.
-5. pytest 15 passed. tests/test_youtube_digest.py가 순수 함수를 검증한다.
-6. 브랜치 main, 최신 커밋 52e4f7e, working tree clean.
-7. .hermes/skills/youtube-digest/SKILL.md 스킬이 있다.
-8. youtube 프로필을 만들어 terminal.cwd와 trusted_project_dirs를
+6. pytest 15 passed. tests/test_youtube_digest.py가 순수 함수를 검증한다.
+   youtube_report.py에 대한 테스트는 아직 없다.
+7. 브랜치 main, 최신 커밋 7532f1f 이후(cron이 매일 자동 커밋을 쌓는다).
+   원격은 https://github.com/HasungKoo/youtube-digest.git
+8. .hermes/skills/youtube-digest/SKILL.md 스킬이 있다.
+9. youtube 프로필을 만들어 terminal.cwd와 trusted_project_dirs를
    youtube-digest로 지정했다. 유튜브 대화는 'youtube chat'으로 한다.
-9. ~/.hermes/scripts/youtube_daily.sh 를 cron이 매일 8시에 실행한다.
-   작업 ID는 8b92e4108dcf, --no-agent 모드라 LLM을 거치지 않는다.
-   결과는 Telegram home 채널과 ~/.hermes/cron/output/ 에 저장된다.
-10. gateway는 systemd 사용자 서비스로 등록되어 있다. hermes gateway start 로 켠다.
+10. ~/.hermes/scripts/youtube_daily.sh 를 cron이 매일 8시에 실행한다.
+    작업 ID 8b92e4108dcf, --no-agent 모드라 LLM을 거치지 않는다.
+    수집 → Telegram 보고 → HTML 생성 → git push → Vercel 자동 배포까지 한다.
+11. gateway는 systemd 사용자 서비스다. hermes gateway start 로 켠다.
+12. 공개 주소는 https://youtube-digest-smoky.vercel.app 이다.
+    Vercel의 Root Directory는 docs로 설정되어 있다.
+13. GitHub 인증은 Personal Access Token이며
+    git config --global credential.helper store 로 저장되어 있다.
 
 주의사항:
 - 100줄 넘는 파일은 터미널 붙여넣기로 만들지 않는다. 잘린다.
   파일로 받아서 cp 하는 방식을 쓴다.
 - .env를 고친 뒤에는 source .env 를 다시 해야 한다.
-- Gemini 503은 Google 서버 문제다. cron 경로는 LLM을 안 쓰므로 영향받지 않는다.
+- Gemini 503/429는 Google 쪽 문제다. cron 경로는 LLM을 안 쓰므로 영향받지 않는다.
 - WSL을 껐다 켜면 gateway가 죽을 수 있다.
+- git push 전에 git ls-files | grep -i env 로 키가 안 올라가는지 확인한다.
 
 재개할 때 먼저 실행할 명령:
 cd ~/projects/youtube-digest
@@ -641,10 +674,11 @@ pytest -q
 hermes gateway status
 hermes cron status
 
-다음 작업:
+다음 작업 후보:
 - 이 구조를 KRA 프로젝트(horse-agent-free-laptop-starter)에 이식해
   경마 유튜브 보고를 만든다. 검색어는 테스트해서 정한다.
-- 필요하면 LLM 요약(B안)으로 확장한다.
+- youtube_report.py에 대한 테스트 추가.
+- 필요하면 LLM 요약(B안)으로 확장.
 
 나에게 명령을 한꺼번에 많이 주지 말고, 한 단계씩 실행 결과를 확인하면서 코치해 줘.
 API 키·토큰·비밀번호는 출력하거나 요구하지 마.
@@ -652,31 +686,36 @@ API 키·토큰·비밀번호는 출력하거나 요구하지 마.
 
 ---
 
-## 16. 용어 정리
+## 18. 용어 정리
 
 | 용어 | 쉽게 말하면 | 이 프로젝트의 예 |
 | --- | --- | --- |
-| cron | 정해진 시각에 명령을 자동 실행 | 매일 8시 유튜브 보고 |
-| crontab 표기 | `분 시 일 월 요일` | `0 8 * * *` = 매일 8시 |
+| cron | 정해진 시각에 명령을 자동 실행 | 매일 8시 |
+| crontab 표기 | `분 시 일 월 요일` | `0 8 * * *` |
 | `--no-agent` | LLM을 건너뛰고 스크립트 출력만 전달 | 503과 무관하게 작동 |
-| home 채널 | cron 결과를 배달할 Telegram 채팅 | `/sethome`으로 설정 |
+| home 채널 | cron 결과를 배달할 Telegram 채팅 | `/sethome` |
 | systemd 서비스 | 백그라운드에서 도는 프로그램 | gateway |
 | linger | 로그아웃해도 서비스 유지 | gateway install 시 자동 |
 | wrapper | 긴 명령의 줄임 스크립트 | `youtube` = `hermes --profile youtube` |
 | `terminal.cwd` | 그 프로필이 일하는 폴더 | 프로필마다 다르다 |
-| `trusted_project_dirs` | 스킬을 읽어올 프로젝트 폴더 | 프로필 config에 있다 |
 | manifest | 수집한 것의 목록과 증명서 | 건수, 해시, 할당량 |
 | 할당량(유닛) | API 사용량 계량 단위 | search 100, videos 1 |
 | `.gitignore` | git이 무시할 파일 목록 | `.env`, `.venv/`, `data/raw/` |
+| remote / origin | 원격 저장소의 별명 | GitHub 주소 |
+| Personal Access Token | 비밀번호 대신 쓰는 인증 문자열 | `ghp_`로 시작 |
+| deploy | 만든 것을 서비스에 올림 | Vercel 배포 |
+| Root Directory | 배포할 폴더 | `docs` |
+| 스파크라인 | 축 없는 작은 추이 선그래프 | 조회수 7회 이력 |
+| 정적 사이트 | 서버 계산 없이 파일만 보여주는 것 | 우리 HTML |
 
 ---
 
-## 17. 문서 갱신 원칙
+## 19. 문서 갱신 원칙
 
 - 중요 단계가 완료될 때마다 "현재 위치"와 "다음 작업"만 갱신한다.
 - API 키·토큰·개인식별정보는 복사하지 않는다.
-- Git 커밋 해시, 브랜치, pytest 결과, cron 작업 ID를 기록한다.
-- **프로필·cron·gateway 설정은 Git 밖에 있으므로 이 문서가 유일한 재현 근거다.**
+- Git 커밋 해시, 브랜치, pytest 결과, cron 작업 ID, 공개 주소를 기록한다.
+- **프로필·cron·gateway·Vercel 설정은 Git 밖에 있으므로 이 문서가 유일한 재현 근거다.**
 - 검색어를 바꾸면 5장에 그 이유와 테스트 결과를 남긴다.
 - 마크다운을 원본으로 Git에 두고 PDF는 필요할 때 생성한다.
 - 이 문서는 `docs/YOUTUBE_DIGEST_STATUS.md`에 두고 갱신 후 커밋한다.
@@ -685,4 +724,4 @@ API 키·토큰·비밀번호는 출력하거나 요구하지 마.
 
 *— 요약 끝 —*
 
-*작성 2026-09-04 · 기준 커밋 `52e4f7e` · API 키·토큰은 문서에 포함하지 않음*
+*갱신 2026-09-06 · 기준 커밋 `7532f1f` · API 키·토큰은 문서에 포함하지 않음*
