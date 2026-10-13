@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ai-agent 다이제스트</title>
+<style>
+  :root {
+    --text: #1a1a1a; --muted: #6b6b68; --line: #e5e3dd;
+    --card: #ffffff; --bg: #faf9f7;
+    --up: #0f6e56; --down: #a32d2d; --accent: #185fa5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --text: #e8e6e0; --muted: #9c9a92; --line: #34332f;
+      --card: #232320; --bg: #1a1a18;
+      --up: #5dcaa5; --down: #f09595; --accent: #85b7eb;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  select {
+    font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--card); color: var(--text);
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 1rem 1.25rem;
+  }
+  .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--line); padding-bottom: 12px;
+  }
+  .head strong { font-size: 16px; font-weight: 500; }
+  .head span { font-size: 12px; color: var(--muted); }
+  .row {
+    display: flex; gap: 10px; align-items: center;
+    padding: 14px 0; border-bottom: 1px solid var(--line);
+  }
+  .row:last-of-type { border-bottom: none; }
+  .rank { min-width: 36px; align-self: flex-start; padding-top: 2px; font-size: 13px; color: var(--muted); }
+  .rank-up { color: var(--up); font-size: 11px; margin-left: 3px; }
+  .rank-down { color: var(--down); font-size: 11px; margin-left: 3px; }
+  .rank-same { color: var(--muted); font-size: 11px; margin-left: 3px; }
+  .main { flex: 1; min-width: 0; }
+  .main a { color: var(--text); text-decoration: none; font-size: 14px; line-height: 1.45; }
+  .main a:hover { color: var(--accent); text-decoration: underline; }
+  .meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .spark { flex-shrink: 0; line-height: 0; }
+  .views { text-align: right; flex-shrink: 0; min-width: 74px; }
+  .count { font-size: 16px; font-weight: 500; }
+  .change { font-size: 12px; }
+  .up { color: var(--up); }
+  .flat { color: var(--muted); }
+  .new {
+    color: var(--accent); font-size: 11px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px;
+  }
+  .dropped { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 4px; }
+  .drop-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .drop { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .why { margin-left: 6px; opacity: 0.7; }
+  footer { font-size: 12px; color: var(--muted); margin-top: 1rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="controls">
+    <select id="date-picker" onchange="location.href='index-' + this.value + '.html'">
+      <option value="2026-10-13" selected>2026-10-13</option><option value="2026-10-11">2026-10-11</option><option value="2026-10-10">2026-10-10</option><option value="2026-10-09">2026-10-09</option><option value="2026-10-07">2026-10-07</option><option value="2026-10-06">2026-10-06</option><option value="2026-10-05">2026-10-05</option><option value="2026-10-04">2026-10-04</option><option value="2026-09-30">2026-09-30</option><option value="2026-09-29">2026-09-29</option><option value="2026-09-28">2026-09-28</option><option value="2026-09-27">2026-09-27</option><option value="2026-09-26">2026-09-26</option><option value="2026-09-23">2026-09-23</option><option value="2026-09-22">2026-09-22</option><option value="2026-09-21">2026-09-21</option><option value="2026-09-20">2026-09-20</option><option value="2026-09-16">2026-09-16</option><option value="2026-09-15">2026-09-15</option><option value="2026-09-14">2026-09-14</option><option value="2026-09-13">2026-09-13</option><option value="2026-09-12">2026-09-12</option><option value="2026-09-11">2026-09-11</option><option value="2026-09-08">2026-09-08</option><option value="2026-09-07">2026-09-07</option><option value="2026-09-06">2026-09-06</option><option value="2026-09-05">2026-09-05</option><option value="2026-09-04">2026-09-04</option>
+    </select>
+    <span style="font-size:13px;color:var(--muted)">2026-10-11 대비</span>
+  </div>
+
+  <div class="card">
+    <div class="head">
+      <strong>ai-agent · 최근 7일</strong>
+      <span>2026-10-13 16:15 기준</span>
+    </div>
+
+      <div class="row">
+        <div class="rank">1</div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=cDDzgBADuuc" target="_blank" rel="noopener">AI 에이전트들이 사용할 앱을 만들었습니다 | AI 세상 만들기 5단계</a>
+          <div class="meta">CNV AI · 10-06</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 32.0,7.0 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">12,809</div>
+          <div class="change"><span class="new">신규</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">2<span class="rank-down">&#9660;1</span></div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=EeXRmKJ8hGo" target="_blank" rel="noopener">엔트로픽이 직접 밝힌 클로드 AI 에이전트 만드는 꿀팁..!</a>
+          <div class="meta">작심만일 : 성공 마인드 동반자 · 10-10</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">12,516</div>
+          <div class="change"><span class="up">+9,085</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">3<span class="rank-same">–</span></div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=Zy-9cMXoOHI" target="_blank" rel="noopener">AI 에이전트가 스스로 운영하는 수익형 웹사이트 만들기</a>
+          <div class="meta">AI로 만드는 1인 기업 - 에이브랜치 · 10-11</div>
+        </div>
+        <div class="spark"><svg width="64" height="26" viewBox="0 0 64 26"><polyline points="2.0,24.0 62.0,2.0" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="62.0" cy="2.0" r="2.5" fill="#1D9E75"/></svg></div>
+        <div class="views">
+          <div class="count">9,742</div>
+          <div class="change"><span class="up">+8,700</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">4</div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=UZsVYlI6mVY" target="_blank" rel="noopener">아직도 젬(Gem) 쓰시나요? 제미나이 &#x27;스킬&#x27;로 갈아타야 하는 이유| 10초 만에 스킬을 생성하는 노하우부터 두 가지 기능을 엮어서 더욱 강력하게 실행하는 실무 팁</a>
+          <div class="meta">디꿀방 · 10-12</div>
+        </div>
+        <div class="spark"><svg width="64" height="26"></svg></div>
+        <div class="views">
+          <div class="count">9,228</div>
+          <div class="change"><span class="new">신규</span></div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="rank">5</div>
+        <div class="main">
+          <a href="https://www.youtube.com/watch?v=wxQygWilXxc" target="_blank" rel="noopener">AI 인플루언서, 진짜 미쳤다.</a>
+          <div class="meta">돈디 AI · 10-10</div>
+        </div>
+        <div class="spark"><svg width="64" height="26"></svg></div>
+        <div class="views">
+          <div class="count">5,385</div>
+          <div class="change"><span class="new">신규</span></div>
+        </div>
+      </div>
+
+      <div class="dropped">
+        <div class="drop-label">순위에서 빠짐</div>
+        <div class="drop">영상 편집, 이제 AI 에이전트에게 전부 시켰습니다<span class="why">· 2위였음</span></div><div class="drop">그록봇으로 에이스 팀 만들기｜멀티 에이전트<span class="why">· 4위였음</span></div><div class="drop">AI에게 목표를 맡기고 작업을 관리하는 앱을 만들었습니다 | AI 세상 만들기 6단계<span class="why">· 5위였음</span></div>
+      </div>
+  </div>
+
+  <footer>YouTube Data API v3 · 매일 08:00 자동 수집</footer>
+</div>
+</body>
+</html>
